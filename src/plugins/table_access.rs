@@ -10,7 +10,7 @@ use crate::{
     query_router::QueryRouter,
 };
 
-use log::debug;
+use log::info;
 
 use core::ops::ControlFlow;
 
@@ -46,7 +46,7 @@ impl<'a> Plugin for TableAccess<'a> {
         });
 
         if let Some(found) = found {
-            debug!("Blocking access to table \"{}\"", found);
+            info!("Blocking access to table \"{}\"", found);
 
             Ok(PluginOutput::Deny(format!(
                 "permission for table \"{}\" denied",

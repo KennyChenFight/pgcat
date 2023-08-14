@@ -1,7 +1,7 @@
 use crate::errors::Error;
 use crate::pool::ConnectionPool;
 use crate::server::Server;
-use log::debug;
+use log::info;
 
 #[derive(Clone, Debug)]
 pub struct AuthPassthrough {
@@ -83,7 +83,7 @@ impl AuthPassthrough {
 
         let user = &address.username;
 
-        debug!("Connecting to server to obtain auth hashes");
+        info!("Connecting to server to obtain auth hashes");
 
         let auth_query = self.query.replace("$1", user);
 

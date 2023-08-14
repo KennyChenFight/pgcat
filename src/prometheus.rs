@@ -1,6 +1,6 @@
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
-use log::{debug, error, info};
+use log::{error, info};
 use phf::phf_map;
 use std::collections::HashMap;
 use std::fmt;
@@ -275,7 +275,7 @@ fn push_address_stats(lines: &mut Vec<String>) {
                     {
                         lines.push(prometheus_metric.to_string());
                     } else {
-                        debug!("Metric {} not implemented for {}", key, address.name());
+                        info!("Metric {} not implemented for {}", key, address.name());
                     }
                 }
             }
@@ -293,7 +293,7 @@ fn push_pool_stats(lines: &mut Vec<String>) {
             {
                 lines.push(prometheus_metric.to_string());
             } else {
-                debug!("Metric {} not implemented for ({})", name, *pool_id);
+                info!("Metric {} not implemented for ({})", name, *pool_id);
             }
         }
     }
@@ -318,7 +318,7 @@ fn push_database_stats(lines: &mut Vec<String>) {
                     {
                         lines.push(prometheus_metric.to_string());
                     } else {
-                        debug!("Metric {} not implemented for {}", key, address.name());
+                        info!("Metric {} not implemented for {}", key, address.name());
                     }
                 }
             }
@@ -364,7 +364,7 @@ fn push_server_stats(lines: &mut Vec<String>) {
                         {
                             lines.push(prometheus_metric.to_string());
                         } else {
-                            debug!("Metric {} not implemented for {}", key, address.name());
+                            info!("Metric {} not implemented for {}", key, address.name());
                         }
                     }
                 }

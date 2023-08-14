@@ -1,7 +1,7 @@
 /// Route queries automatically based on explicitly requested
 /// or implied query characteristics.
 use bytes::{Buf, BytesMut};
-use log::{debug, error};
+use log::{info, error};
 use once_cell::sync::OnceCell;
 use regex::{Regex, RegexSet};
 use sqlparser::ast::Statement::{Query, StartTransaction};
@@ -160,7 +160,7 @@ impl QueryRouter {
                             cap.get(1).and_then(|id| id.as_str().parse::<usize>().ok())
                         });
                         if let Some(shard_id) = shard_id {
-                            debug!("Setting shard to {:?}", shard_id);
+                            info!("Setting shard to {:?}", shard_id);
                             self.set_shard(shard_id);
                             // Skip other command processing since a sharding command was found
                             return None;
@@ -176,7 +176,7 @@ impl QueryRouter {
                                     cap.get(1).and_then(|id| id.as_str().parse::<i64>().ok())
                                 });
                         if let Some(sharding_key) = sharding_key {
-                            debug!("Setting sharding_key to {:?}", sharding_key);
+                            info!("Setting sharding_key to {:?}", sharding_key);
                             self.set_sharding_key(sharding_key);
                             // Skip other command processing since a sharding command was found
                             return None;
@@ -210,7 +210,7 @@ impl QueryRouter {
         // This is not a custom query, try to infer which
         // server it'll go to if the query parser is enabled.
         if matches.len() != 1 {
-            debug!("Regular query, not a command");
+            info!("Regular query, not a command");
             return None;
         }
 
@@ -314,13 +314,13 @@ impl QueryRouter {
 
             Command::SetPrimaryReads => {
                 if value == "on" {
-                    debug!("Setting primary reads to on");
+                    info!("Setting primary reads to on");
                     self.primary_reads_enabled = Some(true);
                 } else if value == "off" {
-                    debug!("Setting primary reads to off");
+                    info!("Setting primary reads to off");
                     self.primary_reads_enabled = Some(false);
                 } else if value == "default" {
-                    debug!("Setting primary reads to default");
+                    info!("Setting primary reads to default");
                     self.primary_reads_enabled = None;
                 }
             }
@@ -353,7 +353,7 @@ impl QueryRouter {
             // Query
             'Q' => {
                 let query = message_cursor.read_string().unwrap();
-                debug!("Query: '{}'", query);
+                info!("Query: '{}'", query);
                 query
             }
 
@@ -365,7 +365,7 @@ impl QueryRouter {
                 // Reads query string
                 let query = message_cursor.read_string().unwrap();
 
-                debug!("Prepared statement: '{}'", query);
+                info!("Prepared statement: '{}'", query);
 
                 query
             }
@@ -376,7 +376,7 @@ impl QueryRouter {
         match Parser::parse_sql(&PostgreSqlDialect {}, &query) {
             Ok(ast) => Ok(ast),
             Err(err) => {
-                debug!("{}: {}", err, query);
+                info!("{}: {}", err, query);
                 Err(Error::QueryRouterParserError(err.to_string()))
             }
         }
@@ -388,7 +388,7 @@ impl QueryRouter {
             return Ok(()); // Nothing to do
         }
 
-        debug!("Inferring role");
+        info!("Inferring role, ast: {:?}, role: {:?}", ast, self.active_role);
 
         if ast.is_empty() {
             // That's weird, no idea, let's go to primary
@@ -397,6 +397,7 @@ impl QueryRouter {
         }
 
         for q in ast {
+            info!("AST q: {:?}", q);
             match q {
                 // All transactions go to the primary, probably a write.
                 StartTransaction { .. } => {
@@ -416,7 +417,7 @@ impl QueryRouter {
                             match self.infer_shard(query) {
                                 Some(shard) => {
                                     self.active_shard = Some(shard);
-                                    debug!("Automatically using shard: {:?}", self.active_shard);
+                                    info!("Automatically using shard: {:?}", self.active_shard);
                                 }
 
                                 None => (),
@@ -425,7 +426,6 @@ impl QueryRouter {
 
                         None => (),
                     };
-
                     self.active_role = match self.primary_reads_enabled() {
                         false => Some(Role::Replica), // If primary should not be receiving reads, use a replica.
                         true => None,                 // Any server role is fine in this case.
@@ -440,6 +440,7 @@ impl QueryRouter {
             };
         }
 
+        info!("final role: {:?}", self.active_role);
         Ok(())
     }
 
@@ -453,7 +454,7 @@ impl QueryRouter {
             return false; // Nothing to do
         }
 
-        debug!("Parsing bind message");
+        info!("Parsing bind message");
 
         let mut message_cursor = Cursor::new(message);
 
@@ -461,13 +462,13 @@ impl QueryRouter {
         let len = message_cursor.get_i32();
 
         if code != 'B' {
-            debug!("Not a bind packet");
+            info!("Not a bind packet");
             return false;
         }
 
         // Check message length
         if message.len() != len as usize + 1 {
-            debug!(
+            info!(
                 "Message has wrong length, expected {}, but have {}",
                 len,
                 message.len()
@@ -477,7 +478,7 @@ impl QueryRouter {
 
         // There are no shard keys in the prepared statement.
         if self.placeholders.is_empty() {
-            debug!("There are no placeholders in the prepared statement that matched the automatic sharding key");
+            info!("There are no placeholders in the prepared statement that matched the automatic sharding key");
             return false;
         }
 
@@ -527,7 +528,7 @@ impl QueryRouter {
                 _ => unreachable!(),
             };
 
-            debug!("Parameter {} (len: {}): {:?}", i, len, format);
+            info!("Parameter {} (len: {}): {:?}", i, len, format);
 
             // Postgres counts placeholders starting at 1
             let placeholder = i + 1;
@@ -544,7 +545,7 @@ impl QueryRouter {
                         match value.parse::<i64>() {
                             Ok(value) => value,
                             Err(_) => {
-                                debug!("Error parsing bind value: {}", value);
+                                info!("Error parsing bind value: {}", value);
                                 continue;
                             }
                         }
@@ -576,11 +577,11 @@ impl QueryRouter {
         // We only support querying one shard at a time.
         // TODO: Support multi-shard queries some day.
         if shards.len() == 1 {
-            debug!("Found one sharding key");
+            info!("Found one sharding key");
             self.set_shard(*shards.first().unwrap());
             true
         } else {
-            debug!("Found no sharding keys");
+            info!("Found no sharding keys");
             false
         }
     }
@@ -634,7 +635,7 @@ impl QueryRouter {
                                 // and use the table name only.
                                 found = &sharding_key[0].value == &table[1].value;
                             } else {
-                                debug!("Got table name with more than two idents, which is not possible");
+                                info!("Got table name with more than two idents, which is not possible");
                             }
                         }
                     }
@@ -658,7 +659,7 @@ impl QueryRouter {
                 BinaryOperator::And => (),
                 _ => {
                     // TODO: support other operators than equality.
-                    debug!("Unsupported operation: {:?}", op);
+                    info!("Unsupported operation: {:?}", op);
                     return Vec::new();
                 }
             };
@@ -670,7 +671,7 @@ impl QueryRouter {
                         match value.parse::<i64>() {
                             Ok(value) => result.push(ShardingKey::Value(value)),
                             Err(_) => {
-                                debug!("Sharding key was not an integer: {}", value);
+                                info!("Sharding key was not an integer: {}", value);
                             }
                         };
                     }
@@ -680,7 +681,7 @@ impl QueryRouter {
                     match placeholder.replace("$", "").parse::<i16>() {
                         Ok(placeholder) => result.push(ShardingKey::Placeholder(placeholder)),
                         Err(_) => {
-                            debug!(
+                            info!(
                                 "Prepared statement didn't have integer placeholders: {}",
                                 placeholder
                             );
@@ -691,7 +692,7 @@ impl QueryRouter {
             };
         }
 
-        debug!("Sharding keys found: {:?}", result);
+        info!("Sharding keys found: {:?}", result);
 
         result
     }
@@ -795,7 +796,7 @@ impl QueryRouter {
         match shards.len() {
             // Didn't find a sharding key, you're on your own.
             0 => {
-                debug!("No sharding keys found");
+                info!("No sharding keys found");
                 None
             }
 
@@ -803,7 +804,7 @@ impl QueryRouter {
 
             // TODO: support querying multiple shards (some day...)
             _ => {
-                debug!("More than one sharding key found");
+                info!("More than one sharding key found");
                 None
             }
         }
@@ -883,7 +884,7 @@ impl QueryRouter {
     pub fn query_parser_enabled(&self) -> bool {
         let enabled = match self.query_parser_enabled {
             None => {
-                debug!(
+                info!(
                     "Using pool settings, query_parser_enabled: {}",
                     self.pool_settings.query_parser_enabled
                 );
@@ -891,7 +892,7 @@ impl QueryRouter {
             }
 
             Some(value) => {
-                debug!(
+                info!(
                     "Using query parser override, query_parser_enabled: {}",
                     value
                 );

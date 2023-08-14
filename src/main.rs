@@ -44,7 +44,7 @@ use jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use parking_lot::Mutex;
 use pgcat::format_duration;
 use tokio::net::TcpListener;
@@ -176,7 +176,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             tokio::task::spawn(async move {
                 loop {
                     autoreload_interval.tick().await;
-                    debug!("Automatically reloading config");
+                    info!("Automatically reloading config");
 
                     if let Ok(changed) = reload_config(autoreload_client_server_map.clone()).await {
                         if changed {
@@ -300,7 +300,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         format_duration(&duration)
                                     );
                                 } else {
-                                    debug!(
+                                    info!(
                                         "Client {:?} disconnected, session duration: {}",
                                         addr,
                                         format_duration(&duration)
@@ -310,7 +310,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                             Err(err) => {
                                 match err {
-                                    pgcat::errors::Error::ClientBadStartup => debug!("Client disconnected with error {:?}", err),
+                                    pgcat::errors::Error::ClientBadStartup => info!("Client disconnected with error {:?}", err),
                                     _ => warn!("Client disconnected with error {:?}", err),
                                 }
 

@@ -1,7 +1,7 @@
 use crate::config::get_config;
 use crate::errors::Error;
 use arc_swap::ArcSwap;
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
 use std::io;
@@ -174,7 +174,7 @@ impl CachedResolver {
         let resolver = TokioAsyncResolver::tokio_from_system_conf().unwrap();
         let interval = Duration::from_secs(self.config.dns_max_ttl);
         loop {
-            debug!("Begin refreshing cached DNS addresses.");
+            info!("Begin refreshing cached DNS addresses.");
             // To minimize the time we hold the lock, we first create
             // an array with keys.
             let mut hostnames: Vec<String> = Vec::new();
@@ -194,13 +194,13 @@ impl CachedResolver {
                 match resolver.lookup_ip(hostname).await {
                     Ok(lookup_ip) => {
                         let new_addrset = AddrSet::from(lookup_ip);
-                        debug!(
+                        info!(
                             "Obtained address for host ({}) -> ({:?})",
                             hostname, new_addrset
                         );
 
                         if addrset != new_addrset {
-                            debug!(
+                            info!(
                                 "Addr changed from {:?} to {:?} updating cache.",
                                 addrset, new_addrset
                             );
@@ -215,7 +215,7 @@ impl CachedResolver {
                     }
                 }
             }
-            debug!("Finished refreshing cached DNS addresses.");
+            info!("Finished refreshing cached DNS addresses.");
             sleep(interval).await;
         }
     }
@@ -242,17 +242,17 @@ impl CachedResolver {
     /// ```
     ///
     pub async fn lookup_ip(&self, host: &str) -> ResolveResult<AddrSet> {
-        debug!("Lookup up {} in cache", host);
+        info!("Lookup up {} in cache", host);
         match self.fetch_from_cache(host) {
             Some(addr_set) => {
-                debug!("Cache hit!");
+                info!("Cache hit!");
                 Ok(addr_set)
             }
             None => {
-                debug!("Not found, executing a dns query!");
+                info!("Not found, executing a dns query!");
                 if let Some(ref resolver) = self.resolver {
                     let addr_set = AddrSet::from(resolver.lookup_ip(host).await?);
-                    debug!("Obtained: {:?}", addr_set);
+                    info!("Obtained: {:?}", addr_set);
                     self.store_in_cache(host, addr_set.clone());
                     Ok(addr_set)
                 } else {

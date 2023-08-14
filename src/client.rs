@@ -2,7 +2,7 @@ use crate::errors::{ClientIdentifier, Error};
 use crate::pool::BanReason;
 /// Handle clients by pretending to be a PostgreSQL server.
 use bytes::{Buf, BufMut, BytesMut};
-use log::{debug, error, info, trace, warn};
+use log::{error, info, warn};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::{atomic::AtomicUsize, Arc};
@@ -124,7 +124,7 @@ pub async fn client_entrypoint(
         Ok((ClientConnectionType::Tls, _)) => {
             // TLS settings are configured, will setup TLS now.
             if tls_certificate != None {
-                debug!("Accepting TLS request");
+                info!("Accepting TLS request");
 
                 let mut yes = BytesMut::new();
                 yes.put_u8(b'S');
@@ -136,7 +136,7 @@ pub async fn client_entrypoint(
                         if log_client_connections {
                             info!("Client {:?} connected (TLS)", addr);
                         } else {
-                            debug!("Client {:?} connected (TLS)", addr);
+                            info!("Client {:?} connected (TLS)", addr);
                         }
 
                         if !client.is_admin() {
@@ -188,7 +188,7 @@ pub async fn client_entrypoint(
                                 if log_client_connections {
                                     info!("Client {:?} connected (plain)", addr);
                                 } else {
-                                    debug!("Client {:?} connected (plain)", addr);
+                                    info!("Client {:?} connected (plain)", addr);
                                 }
 
                                 if !client.is_admin() {
@@ -242,7 +242,7 @@ pub async fn client_entrypoint(
                     if log_client_connections {
                         info!("Client {:?} connected (plain)", addr);
                     } else {
-                        debug!("Client {:?} connected (plain)", addr);
+                        info!("Client {:?} connected (plain)", addr);
                     }
 
                     if !client.is_admin() {
@@ -441,7 +441,7 @@ where
 
         // Kick any client that's not admin while we're in admin-only mode.
         if !admin && admin_only {
-            debug!(
+            info!(
                 "Rejecting non-admin connection to {} when in admin only mode",
                 pool_name
             );
@@ -660,14 +660,14 @@ where
         // Update the parameters to merge what the application sent and what's originally on the server
         server_parameters.set_from_hashmap(&parameters, false);
 
-        debug!("Password authentication successful");
+        info!("Password authentication successful");
 
         auth_ok(&mut write).await?;
         write_all(&mut write, (&server_parameters).into()).await?;
         backend_key_data(&mut write, process_id, secret_key).await?;
         ready_for_query(&mut write).await?;
 
-        trace!("Startup OK");
+        info!("Startup OK");
         let stats = Arc::new(ClientStats::new(
             process_id,
             application_name,
@@ -739,7 +739,7 @@ where
     pub async fn handle(&mut self) -> Result<(), Error> {
         // The client wants to cancel a query it has issued previously.
         if self.cancel_mode {
-            trace!("Sending CancelRequest");
+            info!("Sending CancelRequest");
 
             let (process_id, secret_key, address, port) = {
                 let guard = self.client_server_map.lock();
@@ -787,7 +787,7 @@ where
         // We expect the client to either start a transaction with regular queries
         // or issue commands for our sharding and server selection protocol.
         loop {
-            trace!(
+            info!(
                 "Client idle, waiting for message, transaction mode: {}",
                 self.transaction_mode
             );
@@ -823,7 +823,7 @@ where
 
             // Handle admin database queries.
             if self.admin {
-                debug!("Handling admin command");
+                info!("Handling admin command");
                 handle_admin(&mut self.write, message, self.client_server_map.clone()).await?;
                 continue;
             }
@@ -836,6 +836,8 @@ where
 
             let mut initial_parsed_ast = None;
 
+            let test_code = message[0] as char;
+            info!("custom protocol message: {:?}", test_code);
             match message[0] as char {
                 // Buffer extended protocol messages even if we do not have
                 // a server connection yet. Hopefully, when we get the S message
@@ -900,6 +902,7 @@ where
                 'P' => {
                     if prepared_statements_enabled {
                         (prepared_statement, message) = self.rewrite_parse(message)?;
+                        info!("P prepared_statement: {:?}", prepared_statement);
                         will_prepare = true;
                     }
 
@@ -911,6 +914,7 @@ where
                                 if let Ok(output) = query_router.execute_plugins(&ast).await {
                                     plugin_output = Some(output);
                                 }
+                                info!("custom protocol Parsed AST");
 
                                 let _ = query_router.infer(&ast);
                             }
@@ -922,7 +926,6 @@ where
                             }
                         };
                     }
-
                     continue;
                 }
 
@@ -941,7 +944,7 @@ where
                 }
 
                 'X' => {
-                    debug!("Client disconnecting");
+                    info!("Client disconnecting");
 
                     self.stats.disconnect();
 
@@ -1051,7 +1054,7 @@ where
                 }
             };
 
-            debug!("Waiting for connection from pool");
+            info!("Waiting for connection from pool code: {:?}", test_code);
             if !self.admin {
                 self.stats.waiting();
             }
@@ -1062,7 +1065,7 @@ where
                 .await
             {
                 Ok(conn) => {
-                    debug!("Got connection from pool");
+                    info!("Got connection from pool");
                     conn
                 }
                 Err(err) => {
@@ -1115,7 +1118,7 @@ where
             self.last_address_id = Some(address.id);
             self.last_server_stats = Some(server.stats());
 
-            debug!(
+            info!(
                 "Client {:?} talking to server {:?}",
                 self.addr,
                 server.address()
@@ -1144,15 +1147,15 @@ where
                     prepared_statements_enabled = get_prepared_statements();
                 }
 
-                debug!("Prepared statement active: {:?}", prepared_statement);
+                info!("Prepared statement active: {:?}", prepared_statement);
 
                 // We are processing a prepared statement.
                 if let Some(ref name) = prepared_statement {
-                    debug!("Checking prepared statement is on server");
+                    info!("Checking prepared statement is on server");
                     // Get the prepared statement the server expects to see.
                     let statement = match self.prepared_statements.get(name) {
                         Some(statement) => {
-                            debug!("Prepared statement `{}` found in cache", name);
+                            info!("Prepared statement `{}` found in cache", name);
                             statement
                         }
                         None => {
@@ -1190,7 +1193,7 @@ where
 
                 let mut message = match initial_message {
                     None => {
-                        trace!("Waiting for message inside transaction or in session mode");
+                        info!("Waiting for message inside transaction or in session mode");
 
                         // This is not an initial message so discard the initial_parsed_ast
                         initial_parsed_ast.take();
@@ -1245,7 +1248,7 @@ where
                 // This reads the first byte without advancing the internal pointer and mutating the bytes
                 let code = *message.get(0).unwrap() as char;
 
-                trace!("Message: {}", code);
+                info!("Message: {}", code);
 
                 match code {
                     // Query
@@ -1284,7 +1287,7 @@ where
                                 };
                             }
                         }
-                        debug!("Sending query to server");
+                        info!("Sending query to server");
 
                         self.send_and_receive_loop(
                             code,
@@ -1336,6 +1339,7 @@ where
 
                         if query_router.query_parser_enabled() {
                             if let Ok(ast) = query_router.parse(&message) {
+                                info!("Parsed AST");
                                 if let Ok(output) = query_router.execute_plugins(&ast).await {
                                     plugin_output = Some(output);
                                 }
@@ -1376,6 +1380,7 @@ where
                             let close: Close = (&message).try_into()?;
 
                             if close.is_prepared_statement() && !close.anonymous() {
+                                info!("Closing prepared statement {:?}", close.name);
                                 match self.prepared_statements.get(&close.name) {
                                     Some(parse) => {
                                         server.will_close(&parse.generated_name);
@@ -1399,7 +1404,7 @@ where
                     // Sync
                     // Frontend (client) is asking for the query result now.
                     'S' => {
-                        debug!("Sending query to server");
+                        info!("Sending query to server");
 
                         match plugin_output {
                             Some(PluginOutput::Deny(error)) => {
@@ -1458,6 +1463,7 @@ where
                             // Release server back to the pool if we are in transaction mode.
                             // If we are in session mode, we keep the server until the client disconnects.
                             if self.transaction_mode && !server.in_copy_mode() {
+                                info!("release in tx mode");
                                 break;
                             }
                         }
@@ -1523,7 +1529,7 @@ where
             }
 
             // The server is no longer bound to us, we can't cancel it's queries anymore.
-            debug!("Releasing server back into the pool");
+            info!("Releasing server back into the pool");
 
             server.checkin_cleanup().await?;
 
@@ -1573,13 +1579,13 @@ where
 
         // Don't rewrite anonymous prepared statements
         if parse.anonymous() {
-            debug!("Anonymous prepared statement");
+            info!("Anonymous prepared statement");
             return Ok((None, message));
         }
 
         let parse = parse.rename();
 
-        debug!(
+        info!(
             "Renamed prepared statement `{}` to `{}` and saved to cache",
             name, parse.name
         );
@@ -1599,7 +1605,7 @@ where
         let name = bind.prepared_statement.clone();
 
         if bind.anonymous() {
-            debug!("Anonymous bind message");
+            info!("Anonymous bind message");
             return Ok((None, message));
         }
 
@@ -1607,12 +1613,12 @@ where
             Some(prepared_stmt) => {
                 let bind = bind.reassign(prepared_stmt);
 
-                debug!("Rewrote bind `{}` to `{}`", name, bind.prepared_statement);
+                info!("Rewrote bind `{}` to `{}`", name, bind.prepared_statement);
 
                 Ok((Some(name), bind.try_into()?))
             }
             None => {
-                debug!("Got bind for unknown prepared statement {:?}", bind);
+                info!("Got bind for unknown prepared statement {:?}", bind);
 
                 error_response(
                     &mut self.write,
@@ -1641,7 +1647,7 @@ where
         let name = describe.statement_name.clone();
 
         if describe.anonymous() {
-            debug!("Anonymous describe");
+            info!("Anonymous describe");
             return Ok((None, message));
         }
 
@@ -1649,7 +1655,7 @@ where
             Some(prepared_stmt) => {
                 let describe = describe.rename(&prepared_stmt.name);
 
-                debug!(
+                info!(
                     "Rewrote describe `{}` to `{}`",
                     name, describe.statement_name
                 );
@@ -1658,7 +1664,7 @@ where
             }
 
             None => {
-                debug!("Got describe for unknown prepared statement {:?}", describe);
+                info!("Got describe for unknown prepared statement {:?}", describe);
 
                 Ok((None, message))
             }
@@ -1680,7 +1686,7 @@ where
         pool: &ConnectionPool,
         client_stats: &ClientStats,
     ) -> Result<(), Error> {
-        debug!("Sending {} to server", code);
+        info!("Sending {} to server", code);
 
         let message = match message {
             Some(message) => message,

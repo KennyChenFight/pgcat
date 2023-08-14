@@ -2,7 +2,7 @@ use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use bb8::{ManageConnection, Pool, PooledConnection, QueueStrategy};
 use chrono::naive::NaiveDateTime;
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use once_cell::sync::Lazy;
 use parking_lot::{Mutex, RwLock};
 use rand::seq::SliceRandom;
@@ -344,7 +344,7 @@ impl ConnectionPool {
                                         }
                                     }
 
-                                    debug!("Hash obtained for {:?}", address);
+                                    info!("Hash obtained for {:?}", address);
 
                                     {
                                         let mut pool_auth_hash = pool_auth_hash.write();
@@ -401,7 +401,7 @@ impl ConnectionPool {
                             false => QueueStrategy::Lifo,
                         };
 
-                        debug!(
+                        info!(
                             "[pool: {}][user: {}] Pool reaper rate: {}ms",
                             pool_name, user.username, reaper_rate
                         );
@@ -640,7 +640,7 @@ impl ConnectionPool {
                 if self.try_unban(&address).await {
                     force_healthcheck = true;
                 } else {
-                    debug!("Address {:?} is banned", address);
+                    info!("Address {:?} is banned", address);
                     continue;
                 }
             }
@@ -713,7 +713,7 @@ impl ConnectionPool {
         start: Instant,
         client_info: &ClientStats,
     ) -> bool {
-        debug!("Running health check on server {:?}", address);
+        info!("Running health check on server {:?}", address);
 
         server.stats().tested();
 
@@ -798,7 +798,7 @@ impl ConnectionPool {
         match guard[address.shard].get(address) {
             Some(_) => true,
             None => {
-                debug!("{:?} is ok", address);
+                info!("{:?} is ok", address);
                 false
             }
         }
@@ -817,7 +817,7 @@ impl ConnectionPool {
             .filter(|addr| addr.role == Role::Replica)
             .count();
 
-        debug!("Available targets: {}", replicas_available);
+        info!("Available targets: {}", replicas_available);
 
         let read_guard = self.banlist.read();
         let all_replicas_banned = read_guard[address.shard].len() == replicas_available;
@@ -855,7 +855,7 @@ impl ConnectionPool {
 
             true
         } else {
-            debug!("{:?} is banned", address);
+            info!("{:?} is banned", address);
             false
         }
     }
@@ -929,7 +929,7 @@ impl ConnectionPool {
             return 0;
         }
         let busy = provisioned - idle;
-        debug!("{:?} has {:?} busy connections", address, busy);
+        info!("{:?} has {:?} busy connections", address, busy);
         return busy;
     }
 }

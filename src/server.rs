@@ -2,7 +2,7 @@
 /// Here we are pretending to the a Postgres client.
 use bytes::{Buf, BufMut, BytesMut};
 use fallible_iterator::FallibleIterator;
-use log::{debug, error, info, trace, warn};
+use log::{error, info, trace, warn};
 use once_cell::sync::Lazy;
 use parking_lot::{Mutex, RwLock};
 use postgres_protocol::message;
@@ -343,10 +343,10 @@ impl Server {
 
         // If we are caching addresses and hostname is not an IP
         if cached_resolver.enabled() && address.host.parse::<IpAddr>().is_err() {
-            debug!("Resolving {}", &address.host);
+            info!("Resolving {}", &address.host);
             addr_set = match cached_resolver.lookup_ip(&address.host).await {
                 Ok(ok) => {
-                    debug!("Obtained: {:?}", ok);
+                    info!("Obtained: {:?}", ok);
                     Some(ok)
                 }
                 Err(err) => {
@@ -390,7 +390,7 @@ impl Server {
             match response {
                 // Server supports TLS
                 'S' => {
-                    debug!("Connecting to server using TLS");
+                    info!("Connecting to server using TLS");
 
                     let mut root_store = RootCertStore::empty();
                     root_store.add_server_trust_anchors(
@@ -449,7 +449,7 @@ impl Server {
         // let (read, write) = split(stream);
         // let (mut read, mut write) = (ReadInner::Plain { stream: read }, WriteInner::Plain { stream: write });
 
-        trace!("Sending StartupMessage");
+        info!("Sending StartupMessage");
 
         // StartupMessage
         let username = match user.server_username {
@@ -501,7 +501,7 @@ impl Server {
                 }
             };
 
-            trace!("Message: {}", code);
+            info!("Message: {}", code);
 
             match code {
                 // Authentication
@@ -517,7 +517,7 @@ impl Server {
                         }
                     };
 
-                    trace!("Auth: {}", auth_code);
+                    info!("Auth: {}", auth_code);
 
                     match auth_code {
                         MD5_ENCRYPTED_PASSWORD => {
@@ -578,7 +578,7 @@ impl Server {
                                 ));
                             }
 
-                            debug!("Starting SASL authentication");
+                            info!("Starting SASL authentication");
 
                             let sasl_len = (len - 8) as usize;
                             let mut sasl_auth = vec![0u8; sasl_len];
@@ -596,7 +596,7 @@ impl Server {
                             let sasl_type = String::from_utf8_lossy(&sasl_auth[..sasl_len - 2]);
 
                             if sasl_type.contains(SCRAM_SHA_256) {
-                                debug!("Using {}", SCRAM_SHA_256);
+                                info!("Using {}", SCRAM_SHA_256);
 
                                 // Generate client message.
                                 let sasl_response = scram.as_mut().unwrap().message();
@@ -626,7 +626,7 @@ impl Server {
                         }
 
                         SASL_CONTINUE => {
-                            trace!("Continuing SASL");
+                            info!("Continuing SASL");
 
                             let mut sasl_data = vec![0u8; (len - 8) as usize];
 
@@ -653,7 +653,7 @@ impl Server {
                         }
 
                         SASL_FINAL => {
-                            trace!("Final SASL");
+                            info!("Final SASL");
 
                             let mut sasl_final = vec![0u8; len as usize - 8];
                             match stream.read_exact(&mut sasl_final).await {
@@ -672,11 +672,11 @@ impl Server {
                                 .finish(&BytesMut::from(&sasl_final[..]))
                             {
                                 Ok(_) => {
-                                    debug!("SASL authentication successful");
+                                    info!("SASL authentication successful");
                                 }
 
                                 Err(err) => {
-                                    debug!("SASL authentication failed");
+                                    info!("SASL authentication failed");
                                     return Err(err);
                                 }
                             };
@@ -701,7 +701,7 @@ impl Server {
                         }
                     };
 
-                    trace!("Error: {}", error_code);
+                    info!("Error: {}", error_code);
 
                     match error_code {
                         // No error message is present in the message.
@@ -727,7 +727,7 @@ impl Server {
                                     return Err(err);
                                 }
                             };
-                            trace!("error fields: {}", &fields);
+                            info!("error fields: {}", &fields);
                             error!("server error: {}: {}", fields.severity, fields.message);
                         }
                     };
@@ -861,7 +861,7 @@ impl Server {
         };
         configure_socket(&stream);
 
-        debug!("Sending CancelRequest");
+        info!("Sending CancelRequest");
 
         let mut bytes = BytesMut::with_capacity(16);
         bytes.put_i32(16);
@@ -920,7 +920,7 @@ impl Server {
             let code = message.get_u8() as char;
             let _len = message.get_i32();
 
-            trace!("Message: {}", code);
+            info!("Message: {}", code);
 
             match code {
                 // ReadyForQuery
@@ -984,13 +984,13 @@ impl Server {
                                     // As a result, we will miss cases when set statements are used in transactions
                                     // This will reduce amount of discard statements sent
                                     if !self.in_transaction {
-                                        debug!("Server connection marked for clean up");
+                                        info!("Server connection marked for clean up");
                                         self.cleanup_state.needs_cleanup_set = true;
                                     }
                                 }
 
                                 "PREPARE" => {
-                                    debug!("Server connection marked for clean up");
+                                    info!("Server connection marked for clean up");
                                     self.cleanup_state.needs_cleanup_prepare = true;
                                 }
                                 _ => (),
@@ -1074,7 +1074,7 @@ impl Server {
     /// Add the prepared statement to being tracked by this server.
     /// The client is processing data that will create a prepared statement on this server.
     pub fn will_prepare(&mut self, name: &str) {
-        debug!("Will prepare `{}`", name);
+        info!("Will prepare `{}`", name);
 
         self.prepared_statements.insert(name.to_string());
         self.stats.prepared_cache_add();
@@ -1084,7 +1084,7 @@ impl Server {
     pub fn should_prepare(&self, name: &str) -> bool {
         let should_prepare = !self.prepared_statements.contains(name);
 
-        debug!("Should prepare `{}`: {}", name, should_prepare);
+        info!("Should prepare `{}`: {}", name, should_prepare);
 
         if should_prepare {
             self.stats.prepared_cache_miss();
@@ -1097,7 +1097,7 @@ impl Server {
 
     /// Create a prepared statement on the server.
     pub async fn prepare(&mut self, parse: &Parse) -> Result<(), Error> {
-        debug!("Preparing `{}`", parse.name);
+        info!("Preparing `{}`", parse.name);
 
         let bytes: BytesMut = parse.try_into()?;
         self.send(&bytes).await?;
@@ -1115,14 +1115,14 @@ impl Server {
         self.prepared_statements.insert(parse.name.to_string());
         self.stats.prepared_cache_add();
 
-        debug!("Prepared `{}`", parse.name);
+        info!("Prepared `{}`", parse.name);
 
         Ok(())
     }
 
     /// Maintain adequate cache size on the server.
     pub async fn maintain_cache(&mut self) -> Result<(), Error> {
-        debug!("Cache maintenance run");
+        info!("Cache maintenance run");
 
         let max_cache_size = get_prepared_statements_cache_size();
         let mut names = Vec::new();
@@ -1145,7 +1145,7 @@ impl Server {
     /// Remove the prepared statement from being tracked by this server.
     /// The client is processing data that will cause the server to close the prepared statement.
     pub fn will_close(&mut self, name: &str) {
-        debug!("Will close `{}`", name);
+        info!("Will close `{}`", name);
 
         self.prepared_statements.remove(name);
     }
@@ -1153,7 +1153,7 @@ impl Server {
     /// Close a prepared statement on the server.
     pub async fn deallocate(&mut self, names: Vec<String>) -> Result<(), Error> {
         for name in &names {
-            debug!("Deallocating prepared statement `{}`", name);
+            info!("Deallocating prepared statement `{}`", name);
 
             let close = Close::new(name);
             let bytes: BytesMut = close.try_into()?;
@@ -1171,7 +1171,7 @@ impl Server {
                 Ok(_) => {
                     self.prepared_statements.remove(name);
                     self.stats.prepared_cache_remove();
-                    debug!("Closed `{}`", name);
+                    info!("Closed `{}`", name);
                 }
 
                 Err(err) => {
@@ -1187,7 +1187,7 @@ impl Server {
     /// If the server is still inside a transaction.
     /// If the client disconnects while the server is in a transaction, we will clean it up.
     pub fn in_transaction(&self) -> bool {
-        debug!("Server in transaction: {}", self.in_transaction);
+        info!("Server in transaction: {}", self.in_transaction);
         self.in_transaction
     }
 
@@ -1272,7 +1272,7 @@ impl Server {
     /// It will use the simple query protocol.
     /// Result will not be returned, so this is useful for things like `SET` or `ROLLBACK`.
     pub async fn query(&mut self, query: &str) -> Result<(), Error> {
-        debug!("Running `{}` on server {:?}", query, self.address);
+        info!("Running `{}` on server {:?}", query, self.address);
 
         let query = simple_query(query);
 
@@ -1306,6 +1306,7 @@ impl Server {
         // to avoid leaking state between clients. For performance reasons we only
         // send `DISCARD ALL` if we think the session is altered instead of just sending
         // it before each checkin.
+        info!("cleanup state: {:?}", self.cleanup_state.needs_cleanup());
         if self.cleanup_state.needs_cleanup() && self.cleanup_connections {
             info!(target: "pgcat::server::cleanup", "Server returned with session state altered, discarding state ({}) for application {}", self.cleanup_state, self.application_name);
             self.query("DISCARD ALL").await?;
@@ -1364,7 +1365,7 @@ impl Server {
     ) -> Result<Vec<String>, Error> {
         let client_server_map: ClientServerMap = Arc::new(Mutex::new(HashMap::new()));
 
-        debug!("Connecting to server to obtain auth hashes.");
+        info!("Connecting to server to obtain auth hashes.");
         let mut server = Server::startup(
             address,
             user,
@@ -1375,7 +1376,7 @@ impl Server {
             true,
         )
         .await?;
-        debug!("Connected!, sending query.");
+        info!("Connected!, sending query.");
         server.send(&simple_query(query)).await?;
         let mut message = server.recv(None).await?;
 
@@ -1415,7 +1416,7 @@ async fn parse_query_message(message: &mut BytesMut) -> Result<Vec<String>, Erro
                 match postgres_message {
                     Some(message::backend::Message::DataRow(data)) => {
                         let buf = data.buffer();
-                        trace!("Data: {:?}", buf);
+                        info!("Data: {:?}", buf);
 
                         for item in data.ranges().iterator() {
                             match item.as_ref() {
@@ -1472,7 +1473,7 @@ impl Drop for Server {
 
         match self.stream.get_mut().try_write(&bytes) {
             Ok(5) => (),
-            _ => debug!("Dirty shutdown"),
+            _ => info!("Dirty shutdown"),
         };
 
         let now = chrono::offset::Utc::now().naive_utc();

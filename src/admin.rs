@@ -2,7 +2,7 @@ use crate::pool::BanReason;
 use crate::server::ServerParameters;
 use crate::stats::pool::PoolStats;
 use bytes::{Buf, BufMut, BytesMut};
-use log::{error, info, trace};
+use log::{error, info};
 use nix::sys::signal::{self, Signal};
 use nix::unistd::Pid;
 use std::collections::HashMap;
@@ -51,82 +51,82 @@ where
     let len = query.get_i32() as usize;
     let query = String::from_utf8_lossy(&query[..len - 5]).to_string();
 
-    trace!("Admin query: {}", query);
+    info!("Admin query: {}", query);
 
     let query_parts: Vec<&str> = query.trim_end_matches(';').split_whitespace().collect();
 
     match query_parts[0].to_ascii_uppercase().as_str() {
         "BAN" => {
-            trace!("BAN");
+            info!("BAN");
             ban(stream, query_parts).await
         }
         "UNBAN" => {
-            trace!("UNBAN");
+            info!("UNBAN");
             unban(stream, query_parts).await
         }
         "RELOAD" => {
-            trace!("RELOAD");
+            info!("RELOAD");
             reload(stream, client_server_map).await
         }
         "SET" => {
-            trace!("SET");
+            info!("SET");
             ignore_set(stream).await
         }
         "PAUSE" => {
-            trace!("PAUSE");
+            info!("PAUSE");
             pause(stream, query_parts[1]).await
         }
         "RESUME" => {
-            trace!("RESUME");
+            info!("RESUME");
             resume(stream, query_parts[1]).await
         }
         "SHUTDOWN" => {
-            trace!("SHUTDOWN");
+            info!("SHUTDOWN");
             shutdown(stream).await
         }
         "SHOW" => match query_parts[1].to_ascii_uppercase().as_str() {
             "HELP" => {
-                trace!("SHOW HELP");
+                info!("SHOW HELP");
                 show_help(stream).await
             }
             "BANS" => {
-                trace!("SHOW BANS");
+                info!("SHOW BANS");
                 show_bans(stream).await
             }
             "CONFIG" => {
-                trace!("SHOW CONFIG");
+                info!("SHOW CONFIG");
                 show_config(stream).await
             }
             "DATABASES" => {
-                trace!("SHOW DATABASES");
+                info!("SHOW DATABASES");
                 show_databases(stream).await
             }
             "LISTS" => {
-                trace!("SHOW LISTS");
+                info!("SHOW LISTS");
                 show_lists(stream).await
             }
             "POOLS" => {
-                trace!("SHOW POOLS");
+                info!("SHOW POOLS");
                 show_pools(stream).await
             }
             "CLIENTS" => {
-                trace!("SHOW CLIENTS");
+                info!("SHOW CLIENTS");
                 show_clients(stream).await
             }
             "SERVERS" => {
-                trace!("SHOW SERVERS");
+                info!("SHOW SERVERS");
                 show_servers(stream).await
             }
             "STATS" => {
-                trace!("SHOW STATS");
+                info!("SHOW STATS");
                 show_stats(stream).await
             }
             "VERSION" => {
-                trace!("SHOW VERSION");
+                info!("SHOW VERSION");
                 show_version(stream).await
             }
             "USERS" => {
-                trace!("SHOW USERS");
+                info!("SHOW USERS");
                 show_users(stream).await
             }
             _ => error_response(stream, "Unsupported SHOW query against the admin database").await,

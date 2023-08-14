@@ -8,7 +8,7 @@ User=pgcat
 Type=simple
 Restart=always
 RestartSec=1
-Environment=RUST_LOG=info
+Environment=RUST_LOG=trace
 LimitNOFILE=65536
 ExecStart=/usr/bin/pgcat /etc/pgcat.toml
 

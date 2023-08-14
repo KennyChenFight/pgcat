@@ -7,7 +7,7 @@ use bytes::{BufMut, BytesMut};
 use serde::{Deserialize, Serialize};
 use sqlparser::ast::Statement;
 
-use log::debug;
+use log::info;
 
 use crate::{
     config::Intercept as InterceptConfig,
@@ -62,7 +62,7 @@ impl<'a> Plugin for Intercept<'a> {
 
             for (_, target) in config.queries.iter() {
                 if target.query.as_str() == q {
-                    debug!("Intercepting query: {}", q);
+                    info!("Intercepting query: {}", q);
 
                     let rd = target
                         .schema

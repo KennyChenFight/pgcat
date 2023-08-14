@@ -1,7 +1,7 @@
 /// Helper functions to send one-off protocol messages
 /// and handle TcpStream (TCP socket).
 use bytes::{Buf, BufMut, BytesMut};
-use log::{debug, error};
+use log::{info, error};
 use md5::{Digest, Md5};
 use socket2::{SockRef, TcpKeepalive};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -1070,7 +1070,7 @@ impl TryFrom<Close> for BytesMut {
     type Error = Error;
 
     fn try_from(close: Close) -> Result<BytesMut, Error> {
-        debug!("Close: {:?}", close);
+        info!("Close: {:?}", close);
 
         let mut bytes = BytesMut::new();
         let name_binding = CString::new(close.name)?;

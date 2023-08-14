@@ -1,4 +1,4 @@
-use log::debug;
+use log::info;
 
 use super::{ClientState, ServerState};
 use crate::{config::PoolMode, messages::DataType, pool::PoolIdentifier};
@@ -67,7 +67,7 @@ impl PoolStats {
                     let max_wait = client.max_wait_time.load(Ordering::Relaxed);
                     pool_stats.maxwait = std::cmp::max(pool_stats.maxwait, max_wait);
                 }
-                None => debug!("Client from an obselete pool"),
+                None => info!("Client from an obselete pool"),
             }
         }
 
@@ -82,7 +82,7 @@ impl PoolStats {
                     ServerState::Login => pool_stats.sv_login += 1,
                     ServerState::Tested => pool_stats.sv_tested += 1,
                 },
-                None => debug!("Server from an obselete pool"),
+                None => info!("Server from an obselete pool"),
             }
         }
 

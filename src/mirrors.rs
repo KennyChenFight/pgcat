@@ -8,7 +8,7 @@ use parking_lot::RwLock;
 
 use crate::config::{get_config, Address, Role, User};
 use crate::pool::{ClientServerMap, ServerPool};
-use log::{error, info, trace, warn};
+use log::{error, info, warn};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 pub struct MirroredClient {
@@ -80,7 +80,7 @@ impl MirroredClient {
                     // Incoming data from server (we read to clear the socket buffer and discard the data)
                     recv_result = server.recv(None) => {
                         match recv_result {
-                            Ok(message) => trace!("Received from mirror: {} {:?}", String::from_utf8_lossy(&message[..]), address.clone()),
+                            Ok(message) => info!("Received from mirror: {} {:?}", String::from_utf8_lossy(&message[..]), address.clone()),
                             Err(err) => {
                                 server.mark_bad();
                                 error!("Failed to receive from mirror {:?} {:?}", err, address.clone());
@@ -93,7 +93,7 @@ impl MirroredClient {
                         match message {
                             Some(bytes) => {
                                 match server.send(&BytesMut::from(&bytes[..])).await {
-                                    Ok(_) => trace!("Sent to mirror: {} {:?}", String::from_utf8_lossy(&bytes[..]), address.clone()),
+                                    Ok(_) => info!("Sent to mirror: {} {:?}", String::from_utf8_lossy(&bytes[..]), address.clone()),
                                     Err(err) => {
                                         server.mark_bad();
                                         error!("Failed to send to mirror, Discarding message {:?}, {:?}", err, address.clone())
